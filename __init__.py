@@ -1,33 +1,32 @@
+import asyncio
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-import logging
 from .const import DOMAIN
+from .udp_communication import Control4AMP
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    _LOGGER.debug("Setting up entry: %s", entry.data)
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+    """Set up Control4 AMP from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = entry.data
+    amplifier = Control4AMP(entry.data["ip_address"], entry.data["port"])
+    hass.data[DOMAIN][entry.entry_id] = amplifier
 
-    try:
-        # Forward setup to the media player platform
-        await hass.config_entries.async_forward_entry_setups(entry, ["media_player"])
-        _LOGGER.debug("Forwarded entry setup to media_player")
-    except Exception as e:
-        _LOGGER.error("Error setting up entry: %s", e)
-        return False
+    # Start the UDP communication
+    asyncio.create_task(amplifier.run())
 
+    # Forward the setup to the media player platform
+    hass.async_create_task(
+        hass.config_entries.async_forward_entry_setup(entry, "media_player")
+    )
+    
     return True
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    _LOGGER.debug("Unloading entry: %s", entry.data)
-    try:
-        await hass.config_entries.async_forward_entry_unload(entry, "media_player")
-        _LOGGER.debug("Unloaded entry from media_player")
-        hass.data[DOMAIN].pop(entry.entry_id)
-    except Exception as e:
-        _LOGGER.error("Error unloading entry: %s", e)
-        return False
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
+    """Unload a config entry."""
+    amplifier = hass.data[DOMAIN].pop(entry.entry_id)
+    await amplifier.stop()
 
-    return True
+    return await hass.config_entries.async_forward_entry_unload(entry, "media_player")
