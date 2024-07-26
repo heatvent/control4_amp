@@ -1,1 +1,6 @@
-
+{
+  "name": "Control4 AMP",
+  "domains": "media_player",
+  "iot_class": "Local Push",
+  "homeassistant": "2021.9.3"
+}
