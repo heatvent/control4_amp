@@ -1,11 +1,9 @@
 {
-  "domain": "control4_amp",
-  "name": "Control4 AMP",
-  "version": "1.0",
-  "documentation": "https://www.example.com",
-  "issue_tracker": "https://www.example.com",
-  "requirements": [],
-  "dependencies": [],
-  "codeowners": ["@heatvent"],
-  "config_flow": true
+    "domain": "control4_amp",
+    "name": "Control4 AMP",
+    "version": "0.1.0",
+    "documentation": "https://www.example.com",
+    "requirements": [],
+    "dependencies": [],
+    "codeowners": ["@your_github_username"]
 }

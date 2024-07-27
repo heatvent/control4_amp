@@ -1,26 +1,27 @@
-import logging
 from homeassistant.components.media_player import MediaPlayerEntity
 from homeassistant.components.media_player.const import (
-    SUPPORT_TURN_ON,
-    SUPPORT_TURN_OFF,
-    SUPPORT_VOLUME_SET,
-)
-from homeassistant.const import STATE_OFF, STATE_ON
+    SUPPORT_TURN_ON, SUPPORT_TURN_OFF, SUPPORT_VOLUME_SET, SUPPORT_VOLUME_MUTE,
+    MEDIA_TYPE_MUSIC, MEDIA_TYPE_CHANNEL)
 from .const import DOMAIN
 
-_LOGGER = logging.getLogger(__name__)
-
 async def async_setup_entry(hass, entry, async_add_entities):
-    amplifier = hass.data[DOMAIN][entry.entry_id]
-    entities = [Control4AMPMediaPlayer(amplifier)]
-    async_add_entities(entities)
+    """Set up the Control4 AMP media player platform."""
+    udp_client = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([Control4AMPMediaPlayer(udp_client)])
 
 class Control4AMPMediaPlayer(MediaPlayerEntity):
-    def __init__(self, amplifier):
-        self._amplifier = amplifier
-        self._name = "Control4 Amplifier"
-        self._state = STATE_OFF
-        self._volume = 0
+    def __init__(self, udp_client):
+        self._udp_client = udp_client
+        self._name = "Control4 AMP"
+        self._state = None
+
+    async def async_added_to_hass(self):
+        """When entity is added to hass."""
+        await self._udp_client.connect()
+
+    async def async_will_remove_from_hass(self):
+        """When entity is removed from hass."""
+        await self._udp_client.close()
 
     @property
     def name(self):
@@ -30,25 +31,12 @@ class Control4AMPMediaPlayer(MediaPlayerEntity):
     def state(self):
         return self._state
 
-    @property
-    def supported_features(self):
-        return SUPPORT_TURN_ON | SUPPORT_TURN_OFF | SUPPORT_VOLUME_SET
-
-    @property
-    def volume_level(self):
-        return self._volume
-
     async def async_turn_on(self):
-        await self._amplifier.send_command("turn_on")
-        self._state = STATE_ON
+        await self._udp_client.send_command("0gha01 c4.sy.fwv\r\n")
+        self._state = "on"
         self.async_write_ha_state()
 
     async def async_turn_off(self):
-        await self._amplifier.send_command("turn_off")
-        self._state = STATE_OFF
-        self.async_write_ha_state()
-
-    async def async_set_volume_level(self, volume):
-        await self._amplifier.send_command(f"set_volume {volume}")
-        self._volume = volume
+        await self._udp_client.send_command("0gha01 c4.sy.off\r\n")
+        self._state = "off"
         self.async_write_ha_state()
