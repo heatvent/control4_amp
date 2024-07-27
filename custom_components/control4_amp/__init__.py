@@ -20,10 +20,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Here, import and call your specific setup functions from other modules
     # For example, setup your platform like this:
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "media_player")
-    )
-
+    hass.data[DOMAIN][entry.entry_id] = ...
+    await hass.config_entries.async_forward_entry_setups(entry, ['media_player'])
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
