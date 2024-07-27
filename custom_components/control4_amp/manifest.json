@@ -1,7 +1,7 @@
 {
   "domain": "control4_amp",
   "name": "Control4 Amplifier",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "requirements": [],
   "dependencies": [],
   "codeowners": ["@your_username"],
