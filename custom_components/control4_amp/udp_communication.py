@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
