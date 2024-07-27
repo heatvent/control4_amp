@@ -1,37 +1,66 @@
+import asyncio
 import logging
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import aiohttp_client
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.typing import ConfigType
-from .udp_communication import UDPClient
-from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the Control4 AMP component."""
-    return True
+class UDPCommunication:
+    """Class to handle UDP communication with Control4 Amp."""
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Control4 AMP from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
-    session = aiohttp_client.async_get_clientsession(hass)
-    udp_client = UDPClient(entry.data["host"], entry.data["port"])
-    hass.data[DOMAIN][entry.entry_id] = udp_client
+    def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
+        self.transport = None
+        self.loop = asyncio.get_event_loop()
+        self.firmware_callback = None  # Add default value for callback
 
-    for component in ["media_player"]:
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, component)
+    def connection_made(self, transport):
+        """Called when the connection is made."""
+        self.transport = transport
+        _LOGGER.info('Connection made to %s:%s', self.ip, self.port)
+
+    def datagram_received(self, data, addr):
+        """Handle received data."""
+        message = data.decode()
+        _LOGGER.info('Received message: %s from %s', message, addr)
+        # Ensure the message contains the expected structure before processing
+        if '"' in message:
+            version = message.split('"')[1]
+            _LOGGER.info('Firmware version received: %s', version)
+            if self.firmware_callback:
+                self.firmware_callback(version)
+        else:
+            _LOGGER.warning('Received unexpected message format: %s', message)
+
+    def error_received(self, exc):
+        """Handle received error."""
+        _LOGGER.error('Error received: %s', exc)
+
+    def connection_lost(self, exc):
+        """Handle connection lost."""
+        _LOGGER.warning('Connection lost: %s', exc)
+        self.transport = None
+
+    async def start(self):
+        """Start UDP server."""
+        self.transport, _ = await self.loop.create_datagram_endpoint(
+            lambda: self,
+            remote_addr=(self.ip, self.port)
         )
+        _LOGGER.info('UDP server started on %s:%s', self.ip, self.port)
 
-    return True
+    async def stop(self):
+        """Stop UDP server."""
+        if self.transport:
+            self.transport.close()
+            _LOGGER.info('UDP connection closed')
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    udp_client = hass.data[DOMAIN].pop(entry.entry_id)
-    await udp_client.close()
-    
-    for component in ["media_player"]:
-        await hass.config_entries.async_forward_entry_unload(entry, component)
+    def send_data(self, data):
+        """Send data via UDP."""
+        if self.transport:
+            self.transport.sendto(data.encode(), (self.ip, self.port))
+            _LOGGER.info('Sent data to %s:%s', self.ip, self.port)
 
-    return True
+    def request_firmware_version(self):
+        """Request firmware version from the amp."""
+        command = "0gha00 c4.sy.fwv\r\n"
+        self.send_data(command)
