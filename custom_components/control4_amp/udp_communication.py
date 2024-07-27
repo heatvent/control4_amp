@@ -18,18 +18,18 @@ class UDPCommunication:
         self.transport = transport
         _LOGGER.info('Connection made to %s:%s', self.ip, self.port)
 
-    def datagram_received(self, data, addr):
-        """Handle received data."""
-        message = data.decode()
-        _LOGGER.info('Received message: %s from %s', message, addr)
-        # Ensure the message contains the expected structure before processing
-        if '"' in message:
+def datagram_received(self, data, addr):
+    """Handle received data."""
+    message = data.decode()
+    try:
+        if 'c4.sy.fwv' in message and '"' in message:
             version = message.split('"')[1]
             _LOGGER.info('Firmware version received: %s', version)
-            if self.firmware_callback:
-                self.firmware_callback(version)
+            # Here you should define how you update the entity or state
         else:
             _LOGGER.warning('Received unexpected message format: %s', message)
+    except IndexError:
+        _LOGGER.error('Error processing message: %s', message)
 
     def error_received(self, exc):
         """Handle received error."""
@@ -57,14 +57,15 @@ class UDPCommunication:
     def send_data(self, data):
         """Send data via UDP."""
         if self.transport:
-            self.transport.sendto(data.encode(), (self.ip, self.port))
-            _LOGGER.info('Sent data to %s:%s', self.ip, self.port)
+            formatted_data = f"{data}\r\n".encode('utf-8')
+            self.transport.sendto(formatted_data, (self.ip, self.port))
+            _LOGGER.info('Sent data: %s to %s:%s', data, self.ip, self.port)
 
-    def request_firmware_version(self, callback=None):
+    def request_firmware_version(self):
         """Request firmware version from the amp."""
-        self.firmware_callback = callback
-        command = "0gha00 c4.sy.fwv\r\n"
+        command = "0gha00 c4.sy.fwv"
         self.send_data(command)
+
 
     # Add a method to handle the response and call the callback
     def handle_response(self, data):
