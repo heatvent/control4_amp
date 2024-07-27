@@ -1,48 +1,49 @@
 import logging
 from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    """Setup media player platform."""
-    udp_comm = hass.data[DOMAIN][entry.entry_id]
-    name = entry.data["name"]
-    entities = [Control4AmpMediaPlayer(name, f"{entry.entry_id}_amp", udp_comm)]
-    for i in range(1, 5):
-        entities.append(Control4AmpMediaPlayer(f"{name} Zone {i}", f"{entry.entry_id}_zone{i}", udp_comm))
-    async_add_entities(entities)
+async def setup_platform(hass, entry, udp_comm, async_add_entities):
+    """Set up the media player platform."""
+    device = Control4AmpMediaPlayer(
+        name=entry.data['name'],
+        unique_id=f"{entry.entry_id}_amp",
+        udp_comm=udp_comm
+    )
+    async_add_entities([device])
+
+    device.udp_comm.request_firmware_version(device.update_firmware_version)
 
 class Control4AmpMediaPlayer(MediaPlayerEntity):
-    """Representation of a Control4 Amp media player."""
+    """MediaPlayer implementation for Control4 Amp."""
 
     def __init__(self, name, unique_id, udp_comm):
-        """Initialize the media player."""
+        """Initialize the Control4 Amp media player."""
         self._name = name
         self._unique_id = unique_id
+        self.udp_comm = udp_comm
         self._state = None
-        self._udp_comm = udp_comm
+        self._attributes = {}
 
-    @property
-    def unique_id(self):
-        """Return the unique ID."""
-        return self._unique_id
+    def update_firmware_version(self, version):
+        """Update firmware version attribute."""
+        self._attributes['firmware_version'] = version
+        self.async_write_ha_state()
 
     @property
     def name(self):
-        """Return the name."""
         return self._name
 
     @property
-    def state(self):
-        """Return the state."""
-        return self._state
+    def unique_id(self):
+        return self._unique_id
 
     @property
     def supported_features(self):
-        """Return the supported features."""
         return MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE
+
+    @property
+    def extra_state_attributes(self):
+        """Return device state attributes."""
+        return self._attributes
