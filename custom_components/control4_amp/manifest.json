@@ -1,9 +1,10 @@
 {
-    "domain": "control4_amp",
-    "name": "Control4 AMP",
-    "version": "0.1.1",
-    "documentation": "https://www.example.com",
-    "requirements": [],
-    "dependencies": [],
-    "codeowners": ["@your_github_username"]
+  "domain": "control4_amp",
+  "name": "Control4 Amplifier",
+  "version": "0.0.1",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": ["@your_username"],
+  "config_flow": true,
+  "documentation": "https://github.com/your_username/control4_amp"
 }
