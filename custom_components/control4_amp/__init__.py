@@ -1,7 +1,7 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from .const import DOMAIN
-from .media_player import setup_platform as setup_media_player
+from .media_player import async_setup_entry as async_setup_media_player
 from .udp_communication import UDPCommunication
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -11,9 +11,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     udp_comm = UDPCommunication(entry.data['ip_address'], entry.data['port'])
     await udp_comm.start()
 
+    # Save the communication instance to be used by other components
     hass.data[DOMAIN][entry.entry_id] = udp_comm
 
-    await setup_media_player(hass, entry, udp_comm)
+    # Setup media player platform and pass the communication instance
+    await async_setup_media_player(hass, entry, lambda entities: hass.add_entities(entities))
 
     return True
 
