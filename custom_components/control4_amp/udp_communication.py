@@ -51,11 +51,12 @@ class UDPCommunication:
 
     def send_data(self, command):
         """Send data to Control4 Amp."""
-        data = f'0g00{self.sequence:02d} {command}\r\n'
+        # Adjusted sequence initialization and formatting
+        self.sequence = (self.sequence % 99) + 1  # Wrap around at 99 and start at 01
+        data = f'0gha{self.sequence:02d} {command}\r\n'
         if self.transport:
             self.transport.sendto(data.encode(), (self.ip, self.port))
-            _LOGGER.info("Sent: %s", data)
-        self.sequence = (self.sequence + 1) % 100  # Wrap around at 99
+            _LOGGER.info("Sent command: %s to %s:%s", data, self.ip, self.port)
 
     def handle_response(self, message):
         """Handle responses from the amplifier."""
