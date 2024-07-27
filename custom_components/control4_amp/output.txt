@@ -1,30 +1,51 @@
 Current contents of [config_flow.py]: 
-import logging
 import voluptuous as vol
 from homeassistant import config_entries
-from .const import DOMAIN
+from homeassistant.core import callback
+import homeassistant.helpers.config_validation as cv
 
-_LOGGER = logging.getLogger(__name__)
+from .const import DOMAIN  # Import the DOMAIN constant
 
 class Control4AmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Manage the Control4 Amp configuration flow."""
+    VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Handle a flow initialized by the user interface."""
-        _LOGGER.debug("User step called with input: %s", user_input)
         errors = {}
         if user_input is not None:
-            _LOGGER.debug("Processing user input: %s", user_input)
-            return self.async_create_entry(title="Control4 Amp", data=user_input)
+            return self.async_create_entry(title="Control4 Amplifier", data=user_input)
+
+        data_schema = vol.Schema({
+            vol.Required("host"): str,
+            vol.Required("port", default=8750): int,
+        })
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({
-                vol.Required("name"): str,
-                vol.Required("ip_address"): str,
-                vol.Required("port", default=8750): int,
-            }),
-            errors=errors
+            data_schema=data_schema,
+            errors=errors,
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return Control4AmpOptionsFlowHandler(config_entry)
+
+class Control4AmpOptionsFlowHandler(config_entries.OptionsFlow):
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        data_schema = vol.Schema({
+            vol.Required("host", default=self.config_entry.data["host"]): str,
+            vol.Required("port", default=self.config_entry.data.get("port", 8750)): int,
+        })
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=data_schema
         )
  
 Current contents of [const.py]: 
@@ -32,64 +53,53 @@ DOMAIN = "control4_amp"
  
 Current contents of [media_player.py]: 
 import logging
-from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature
-from .const import DOMAIN
+from homeassistant.components.media_player import MediaPlayerEntity
+from homeassistant.components.media_player.const import (
+    SUPPORT_TURN_ON,
+    SUPPORT_TURN_OFF,
+    SUPPORT_VOLUME_SET,
+)
+from homeassistant.const import STATE_OFF, STATE_ON
 
 _LOGGER = logging.getLogger(__name__)
 
+SUPPORT_CONTROL4_AMP = SUPPORT_TURN_ON | SUPPORT_TURN_OFF | SUPPORT_VOLUME_SET
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up Control4 Amp MediaPlayer from a config entry."""
-    udp_comm = hass.data[DOMAIN][config_entry.entry_id]
-    name = config_entry.data["name"]
-    device = Control4AmpMediaPlayer(
-        name=name,
-        unique_id=f"{config_entry.entry_id}_amp",
-        udp_comm=udp_comm
-    )
-    async_add_entities([device], True)  # Update upon initialization
+    async_add_entities([Control4Amp(config_entry.data)])
 
-    # Request firmware version after entity is added
-    device.update_firmware_version()
-
-class Control4AmpMediaPlayer(MediaPlayerEntity):
-    """MediaPlayer implementation for Control4 Amp."""
-
-    def __init__(self, name, unique_id, udp_comm):
-        """Initialize the Control4 Amp media player."""
-        super().__init__()
-        self._name = name
-        self._unique_id = unique_id
-        self.udp_comm = udp_comm
-        self._state = None
-        self._attributes = {}
+class Control4Amp(MediaPlayerEntity):
+    def __init__(self, config):
+        self._host = config["host"]
+        self._port = config["port"]
+        self._state = STATE_OFF
+        self._volume = 0
 
     @property
     def name(self):
-        """Return the name of the media player."""
-        return self._name
+        return "Control4 Amplifier"
 
     @property
-    def unique_id(self):
-        """Return the unique ID of the media player."""
-        return self._unique_id
+    def state(self):
+        return self._state
 
     @property
     def supported_features(self):
-        """Return the supported features."""
-        return MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE
+        return SUPPORT_CONTROL4_AMP
 
-    @property
-    def extra_state_attributes(self):
-        """Return extra state attributes."""
-        return self._attributes
+    async def async_turn_on(self):
+        self._state = STATE_ON
+        # Add code to send turn on command to the amplifier
+        self.async_write_ha_state()
 
-    def update_firmware_version(self):
-        """Request and update firmware version."""
-        self.udp_comm.request_firmware_version(self.handle_firmware_response)
+    async def async_turn_off(self):
+        self._state = STATE_OFF
+        # Add code to send turn off command to the amplifier
+        self.async_write_ha_state()
 
-    def handle_firmware_response(self, version):
-        """Handle the response from firmware version request."""
-        self._attributes['firmware_version'] = version
+    async def async_set_volume_level(self, volume):
+        self._volume = volume
+        # Add code to set volume on the amplifier
         self.async_write_ha_state()
  
 Current contents of [udp_communication.py]: 
@@ -106,27 +116,25 @@ class UDPCommunication:
         self.port = port
         self.transport = None
         self.loop = asyncio.get_event_loop()
-        self.firmware_callback = None  # Ensure there's a default callback
 
     def connection_made(self, transport):
         """Called when the connection is made."""
         self.transport = transport
-        _LOGGER.info('Connection made to %s:%s', self.ip, self.port)
+        _LOGGER.info('UDP connection made to %s:%s', self.ip, self.port)
 
     def datagram_received(self, data, addr):
         """Handle received data."""
         message = data.decode()
         _LOGGER.info('Received message: %s from %s', message, addr)
-        # Process the received data here, such as extracting firmware version
+        # Further processing logic here
 
     def error_received(self, exc):
         """Handle received error."""
-        _LOGGER.error('Error received: %s', exc)
+        _LOGGER.error('UDP error received: %s', exc)
 
     def connection_lost(self, exc):
         """Handle connection lost."""
-        _LOGGER.warning('Connection lost: %s', exc)
-        self.transport = None
+        _LOGGER.warning('UDP connection lost: %s', exc)
 
     async def start(self):
         """Start UDP server."""
@@ -146,48 +154,37 @@ class UDPCommunication:
         """Send data via UDP."""
         if self.transport:
             self.transport.sendto(data.encode(), (self.ip, self.port))
-            _LOGGER.info('Sent data to %s:%s', self.ip, self.port)
+            _LOGGER.info('Sent data: %s to %s:%s', data, self.ip, self.port)
 
-    def request_firmware_version(self):
+    def request_firmware_version(self, callback):
         """Request firmware version from the amp."""
-        command = "0gha00 c4.sy.fwv"
-        self.send_data(command)
+        self.send_data("0gha00 c4.sy.fwv\r\n")
+        self.firmware_callback = callback
+
+    def handle_response(self, data):
+        """Process the response from the amp."""
+        # Parse and handle the response here
+        if self.firmware_callback:
+            self.firmware_callback(data)
  
 Current contents of [__init__.py]: 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from .const import DOMAIN
-from .udp_communication import UDPCommunication
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up Control4 Amp from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
+DOMAIN = "control4_amp"
 
-    # Setup UDP communication
-    udp_comm = UDPCommunication(entry.data['ip_address'], entry.data['port'])
-    await udp_comm.start()
-
-    # Store in hass.data for access from platform setup
-    hass.data[DOMAIN][entry.entry_id] = udp_comm
-
-    # Forward the setup to the media_player platform
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, 'media_player')
-    )
-
+async def async_setup(hass: HomeAssistant, config: dict):
+    """Set up the Control4 Amplifier component."""
     return True
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, entry):
+    """Set up Control4 Amplifier from a config entry."""
+    hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, "media_player"))
+    return True
+
+async def async_unload_entry(hass: HomeAssistant, entry):
     """Unload a config entry."""
-    # Unload the media_player platform
-    unload_ok = await hass.config_entries.async_forward_entry_unload(entry, 'media_player')
-
-    # Stop UDP communication
-    udp_comm = hass.data[DOMAIN].pop(entry.entry_id)
-    await udp_comm.stop()
-
-    return unload_ok
+    await hass.config_entries.async_forward_entry_unload(entry, "media_player")
+    return True
  
 Current contents of [hacs.json]: 
 {
@@ -201,11 +198,12 @@ Current contents of [manifest.json]:
 {
   "domain": "control4_amp",
   "name": "Control4 Amplifier",
-  "version": "0.0.3",
-  "requirements": [],
+  "version": "0.0.13",
+  "documentation": "https://www.example.com",
   "dependencies": [],
-  "codeowners": ["@your_username"],
-  "config_flow": true,
-  "documentation": "https://github.com/your_username/control4_amp"
+  "codeowners": ["@heatvent"],
+  "requirements": [],
+  "config_flow": true
 }
+
  

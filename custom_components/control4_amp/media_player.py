@@ -1,43 +1,49 @@
 import logging
-from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature
-from .const import DOMAIN
+from homeassistant.components.media_player import MediaPlayerEntity
+from homeassistant.components.media_player.const import (
+    SUPPORT_TURN_ON,
+    SUPPORT_TURN_OFF,
+    SUPPORT_VOLUME_SET,
+)
+from homeassistant.const import STATE_OFF, STATE_ON
 
 _LOGGER = logging.getLogger(__name__)
 
+SUPPORT_CONTROL4_AMP = SUPPORT_TURN_ON | SUPPORT_TURN_OFF | SUPPORT_VOLUME_SET
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up Control4 Amp MediaPlayer from a config entry."""
-    udp_comm = hass.data[DOMAIN][config_entry.entry_id]['udp_comm']
-    devices = [Control4AmpMediaPlayer(name=config_entry.data['name'], unique_id=f"{config_entry.entry_id}_amp", udp_comm=udp_comm)]
-    async_add_entities(devices)
+    async_add_entities([Control4Amp(config_entry.data)])
 
-class Control4AmpMediaPlayer(MediaPlayerEntity):
-    """MediaPlayer implementation for Control4 Amp."""
-
-    def __init__(self, name, unique_id, udp_comm):
-        """Initialize the Control4 Amp media player."""
-        super().__init__()
-        self._name = name
-        self._unique_id = unique_id
-        self.udp_comm = udp_comm
-        self._state = None
+class Control4Amp(MediaPlayerEntity):
+    def __init__(self, config):
+        self._host = config["host"]
+        self._port = config["port"]
+        self._state = STATE_OFF
+        self._volume = 0
 
     @property
     def name(self):
-        return self._name
+        return "Control4 Amplifier"
 
     @property
-    def unique_id(self):
-        return self._unique_id
+    def state(self):
+        return self._state
 
     @property
     def supported_features(self):
-        return MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE
+        return SUPPORT_CONTROL4_AMP
 
-    async def async_added_to_hass(self):
-        """When entity is added to HA, request the firmware version."""
-        self.udp_comm.request_firmware_version(callback=self.update_firmware_version)
+    async def async_turn_on(self):
+        self._state = STATE_ON
+        # Add code to send turn on command to the amplifier
+        self.async_write_ha_state()
 
-    def update_firmware_version(self, version):
-        """Handle the response for firmware version."""
-        self._state = version
+    async def async_turn_off(self):
+        self._state = STATE_OFF
+        # Add code to send turn off command to the amplifier
+        self.async_write_ha_state()
+
+    async def async_set_volume_level(self, volume):
+        self._volume = volume
+        # Add code to set volume on the amplifier
         self.async_write_ha_state()
