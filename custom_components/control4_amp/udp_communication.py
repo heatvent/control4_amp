@@ -11,7 +11,7 @@ class UDPCommunication:
         self.port = port
         self.transport = None
         self.loop = asyncio.get_event_loop()
-        self.firmware_callback = None  # Add default value for callback
+        self.firmware_callback = None  # Ensure there's a default callback
 
     def connection_made(self, transport):
         """Called when the connection is made."""
@@ -60,7 +60,19 @@ class UDPCommunication:
             self.transport.sendto(data.encode(), (self.ip, self.port))
             _LOGGER.info('Sent data to %s:%s', self.ip, self.port)
 
-    def request_firmware_version(self):
+    def request_firmware_version(self, callback=None):
         """Request firmware version from the amp."""
+        self.firmware_callback = callback
         command = "0gha00 c4.sy.fwv\r\n"
         self.send_data(command)
+
+    # Add a method to handle the response and call the callback
+    def handle_response(self, data):
+        """Handle the response from the device."""
+        if '"' in data:
+            version = data.split('"')[1]
+            _LOGGER.info('Firmware version received: %s', version)
+            if self.firmware_callback:
+                self.firmware_callback(version)
+        else:
+            _LOGGER.warning('Received unexpected message format: %s', data)
