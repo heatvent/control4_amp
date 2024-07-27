@@ -11,7 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
     """Set up Control4 Amp Media Player from a config entry."""
-    udp_comm = UDPCommunication(entry.data["ip_address"], entry.data["port"])
+    udp_comm = UDPCommunication(hass, entry.data["ip_address"], entry.data["port"])
     await udp_comm.start()
     name = entry.data.get("name")
     amp = Control4AmpMediaPlayer(name=name, unique_id=f"{entry.entry_id}_amp", device_info={
