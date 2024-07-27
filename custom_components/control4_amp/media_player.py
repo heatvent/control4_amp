@@ -1,42 +1,84 @@
-from homeassistant.components.media_player import MediaPlayerEntity
-from homeassistant.components.media_player.const import (
-    SUPPORT_TURN_ON, SUPPORT_TURN_OFF, SUPPORT_VOLUME_SET, SUPPORT_VOLUME_MUTE,
-    MEDIA_TYPE_MUSIC, MEDIA_TYPE_CHANNEL)
+import logging
+from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity import DeviceInfo
 from .const import DOMAIN
+from .udp_communication import UDPCommunication
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up the Control4 AMP media player platform."""
-    udp_client = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([Control4AMPMediaPlayer(udp_client)])
+_LOGGER = logging.getLogger(__name__)
 
-class Control4AMPMediaPlayer(MediaPlayerEntity):
-    def __init__(self, udp_client):
-        self._udp_client = udp_client
-        self._name = "Control4 AMP"
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
+    """Set up Control4 Amp Media Player from a config entry."""
+    udp_comm = UDPCommunication(entry.data["ip_address"], entry.data["port"])
+    await udp_comm.start()
+    name = entry.data.get("name")
+    amp = Control4AmpMediaPlayer(name=name, unique_id=f"{entry.entry_id}_amp", device_info={
+        "identifiers": {(DOMAIN, f"{entry.entry_id}_amp")},
+        "name": name,
+        "manufacturer": "Control4",
+        "model": "C4-8AMP1-B",
+        "sw_version": "1.0",
+        "via_device": (DOMAIN, f"{entry.entry_id}")
+    }, udp_comm=udp_comm)
+    zones = [Control4AmpMediaPlayer(name=f"{name} Zone {i+1}", unique_id=f"{entry.entry_id}_zone{i+1}", device_info={
+        "identifiers": {(DOMAIN, f"{entry.entry_id}_zone{i+1}")},
+        "name": f"{name} Zone {i+1}",
+        "manufacturer": "Control4",
+        "model": "Zone Amplifier",
+        "sw_version": "1.0",
+        "via_device": (DOMAIN, f"{entry.entry_id}_amp")
+    }, udp_comm=udp_comm) for i in range(4)]
+    async_add_entities([amp] + zones)
+
+class Control4AmpMediaPlayer(MediaPlayerEntity):
+    """A class representing a Control4 Amp media player."""
+
+    def __init__(self, name, unique_id, device_info, udp_comm):
+        self._name = name
+        self._unique_id = unique_id
+        self._device_info = device_info
         self._state = None
+        self._attributes = {}
+        self.udp_comm = udp_comm
 
     async def async_added_to_hass(self):
-        """When entity is added to hass."""
-        await self._udp_client.connect()
+        """When entity is added to Home Assistant, request firmware."""
+        await super().async_added_to_hass()
+        self.udp_comm.request_firmware_version(callback=self.update_firmware_version)
 
-    async def async_will_remove_from_hass(self):
-        """When entity is removed from hass."""
-        await self._udp_client.close()
+    def update_firmware_version(self, version):
+        """Update the firmware version attribute."""
+        self._attributes['firmware_version'] = version
+        self.async_write_ha_state()
+
+    @property
+    def unique_id(self):
+        """Return a unique identifier for this device."""
+        return self._unique_id
+
+    @property
+    def device_info(self):
+        """Return device information."""
+        return self._device_info
 
     @property
     def name(self):
+        """Return the name of the device."""
         return self._name
 
     @property
     def state(self):
+        """Return the state of the device."""
         return self._state
 
-    async def async_turn_on(self):
-        await self._udp_client.send_command("0gha01 c4.sy.fwv\r\n")
-        self._state = "on"
-        self.async_write_ha_state()
+    @property
+    def supported_features(self):
+        """Return the supported features."""
+        return MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE
 
-    async def async_turn_off(self):
-        await self._udp_client.send_command("0gha01 c4.sy.off\r\n")
-        self._state = "off"
-        self.async_write_ha_state()
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes of the device."""
+        return self._attributes
