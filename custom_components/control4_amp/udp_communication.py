@@ -11,53 +11,45 @@ class UDPCommunication:
         self.port = port
         self.transport = None
         self.loop = asyncio.get_event_loop()
+        self.sequence = 0
 
     def connection_made(self, transport):
-        """Called when the connection is made."""
         self.transport = transport
-        _LOGGER.info('UDP connection made to %s:%s', self.ip, self.port)
+        _LOGGER.info('Connection made to %s:%s', self.ip, self.port)
 
     def datagram_received(self, data, addr):
-        """Handle received data."""
         message = data.decode()
         _LOGGER.info('Received message: %s from %s', message, addr)
-        # Further processing logic here
+        # Process response here
+        if "c4.sy.fwv" in message:
+            version = message.split('"')[1]
+            _LOGGER.info('Firmware version received: %s', version)
+            # Update Home Assistant state here
 
     def error_received(self, exc):
-        """Handle received error."""
-        _LOGGER.error('UDP error received: %s', exc)
+        _LOGGER.error('Error received: %s', exc)
 
     def connection_lost(self, exc):
-        """Handle connection lost."""
-        _LOGGER.warning('UDP connection lost: %s', exc)
+        _LOGGER.warning('Connection lost: %s', exc)
+        self.transport = None
 
     async def start(self):
-        """Start UDP server."""
         self.transport, _ = await self.loop.create_datagram_endpoint(
             lambda: self,
             remote_addr=(self.ip, self.port)
         )
-        _LOGGER.info('UDP server started on %s:%s', self.ip, self.port)
 
     async def stop(self):
-        """Stop UDP server."""
         if self.transport:
             self.transport.close()
             _LOGGER.info('UDP connection closed')
 
-    def send_data(self, data):
-        """Send data via UDP."""
+    def send_data(self, command):
+        data = f'0g{self.sequence:02d}ha00 {command}\r\n'
         if self.transport:
             self.transport.sendto(data.encode(), (self.ip, self.port))
-            _LOGGER.info('Sent data: %s to %s:%s', data, self.ip, self.port)
+            _LOGGER.info('Sent command: %s to %s:%s', data, self.ip, self.port)
+        self.sequence = (self.sequence + 1) % 100  # wrap around at 99
 
-    def request_firmware_version(self, callback):
-        """Request firmware version from the amp."""
-        self.send_data("0gha00 c4.sy.fwv\r\n")
-        self.firmware_callback = callback
-
-    def handle_response(self, data):
-        """Process the response from the amp."""
-        # Parse and handle the response here
-        if self.firmware_callback:
-            self.firmware_callback(data)
+    def request_firmware_version(self):
+        self.send_data("c4.sy.fwv")

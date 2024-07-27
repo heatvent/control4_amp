@@ -1,17 +1,18 @@
 from homeassistant.core import HomeAssistant
-
-DOMAIN = "control4_amp"
+from homeassistant.config_entries import ConfigEntry
+from .const import DOMAIN
 
 async def async_setup(hass: HomeAssistant, config: dict):
-    """Set up the Control4 Amplifier component."""
+    """Set up configured Control4 Amp."""
     return True
 
-async def async_setup_entry(hass: HomeAssistant, entry):
-    """Set up Control4 Amplifier from a config entry."""
-    hass.async_add_job(hass.config_entries.async_forward_entry_setup(entry, "media_player"))
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+    """Set up Control4 Amp from a config entry."""
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = entry.data
+    await hass.config_entries.async_forward_entry_setups(entry, ["media_player"])
     return True
 
-async def async_unload_entry(hass: HomeAssistant, entry):
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
-    await hass.config_entries.async_forward_entry_unload(entry, "media_player")
+    await hass.config_entries.async_unload_platforms(entry, ["media_player"])
     return True
