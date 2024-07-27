@@ -53,7 +53,7 @@ class UDPCommunication:
         """Send data to Control4 Amp."""
         # Adjusted sequence initialization and formatting
         self.sequence = (self.sequence % 99) + 1  # Wrap around at 99 and start at 01
-        data = f'0gha{self.sequence:02d} {command}\r\n'
+        data = f'0g2a{self.sequence:02d} {command}\r\n'
         if self.transport:
             self.transport.sendto(data.encode(), (self.ip, self.port))
             _LOGGER.info("Sent command: %s to %s:%s", data, self.ip, self.port)
