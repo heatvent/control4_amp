@@ -51,7 +51,7 @@ class UDPCommunication:
 
     def send_data(self, command):
         """Send data to Control4 Amp."""
-        data = f'0gha{self.sequence:02d} {command}\r\n'
+        data = f'0g00{self.sequence:02d} {command}\r\n'
         if self.transport:
             self.transport.sendto(data.encode(), (self.ip, self.port))
             _LOGGER.info("Sent: %s", data)
