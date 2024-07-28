@@ -37,6 +37,12 @@ class Control4AmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_NAME): str,
                 vol.Required(CONF_IP_ADDRESS): str,
                 vol.Required(CONF_PORT, default=8750): int,
+                vol.Optional("input_1_name", default="Analog 1"): str,
+                vol.Optional("input_2_name", default="Analog 2"): str,
+                vol.Optional("input_3_name", default="Analog 3"): str,
+                vol.Optional("input_4_name", default="Analog 4"): str,
+                vol.Optional("input_5_name", default="Digital 1"): str,
+                vol.Optional("input_6_name", default="Digital 2"): str,
             }),
             errors=errors
         )
