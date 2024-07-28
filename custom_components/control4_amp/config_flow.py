@@ -34,8 +34,8 @@ class Control4AmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required(CONF_NAME): str,
-                vol.Required(CONF_IP_ADDRESS): str,
+                vol.Required(CONF_NAME, default="AMP Name"): str,
+                vol.Required(CONF_IP_ADDRESS, default="AMP IP Address"): str,
                 vol.Required(CONF_PORT, default=8750): int,
                 vol.Optional("input_1_name", default="Analog 1"): str,
                 vol.Optional("input_2_name", default="Analog 2"): str,
