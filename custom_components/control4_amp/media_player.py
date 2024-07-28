@@ -2,7 +2,7 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.media_player import (
-    MediaPlayerEntity, MediaPlayerEntityFeature, SOURCE_SELECT)
+    MediaPlayerEntity, MediaPlayerEntityFeature, MediaPlayerEntityFeature as SOURCE_SELECT)
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import DeviceInfo
 from .const import DOMAIN, INPUTS
