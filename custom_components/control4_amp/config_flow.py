@@ -40,3 +40,5 @@ class Control4AmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }),
             errors=errors
         )
+
+
