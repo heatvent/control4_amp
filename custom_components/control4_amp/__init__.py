@@ -22,3 +22,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
+ 
+Current contents of [hacs.json]: 
+{
+  "name": "Control4 AMP",
+  "domains": "media_player",
+  "iot_class": "Local Push",
+  "homeassistant": "2021.9.3"
+}

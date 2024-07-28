@@ -118,7 +118,8 @@ class Control4AmpMediaPlayer(MediaPlayerEntity):
     @property
     def supported_features(self):
         """Return the supported features."""
-        return MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE 
+        return MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE
+ 
 Current contents of [udp_communication.py]: 
 import asyncio
 import logging
@@ -189,7 +190,8 @@ class UDPCommunication:
 
     def request_firmware_version(self):
         """Send command to request firmware version."""
-        self.send_data("c4.sy.fwv") 
+        self.send_data("c4.sy.fwv")
+ 
 Current contents of [__init__.py]: 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -216,13 +218,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
  
-Current contents of [hacs.json]: 
-{
-  "name": "Control4 AMP",
-  "domains": "media_player",
-  "iot_class": "Local Push",
-  "homeassistant": "2021.9.3"
-} 
 Current contents of [hacs.json]: 
 {
   "name": "Control4 AMP",
