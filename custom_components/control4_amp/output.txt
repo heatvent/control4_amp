@@ -2,7 +2,7 @@ Current contents of [config_flow.py]:
 import logging
 import ipaddress
 import voluptuous as vol
-from homeassistant import config_entries
+from homeassistant import config_entries, exceptions
 from homeassistant.core import callback
 from homeassistant.const import CONF_IP_ADDRESS, CONF_PORT, CONF_NAME
 from .const import DOMAIN
@@ -15,6 +15,11 @@ class Control4AmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return OptionsFlow(config_entry)
+
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user interface."""
         errors = {}
@@ -24,10 +29,7 @@ class Control4AmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if user_input[CONF_PORT] <= 0 or user_input[CONF_PORT] > 65535:
                     raise ValueError("Invalid port number.")
                 _LOGGER.debug("Processing user input: %s", user_input)
-                # Unique ID can be set as IP or another unique identifier
-                await self.async_set_unique_id(user_input[CONF_IP_ADDRESS])
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
+                return self.async_create_entry(title="Control4 Amp", data=user_input)
             except ValueError as e:
                 _LOGGER.error("Validation error: %s", e)
                 errors["base"] = "invalid_input"
@@ -40,6 +42,32 @@ class Control4AmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_PORT, default=8750): int,
             }),
             errors=errors
+        )
+
+class InvalidInput(exceptions.HomeAssistantError):
+    """Error to indicate the input is invalid."""
+
+class OptionsFlow(config_entries.OptionsFlow):
+    """Handle an options flow for Control4 Amp."""
+
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        return await self.async_step_user()
+
+    async def async_step_user(self, user_input=None):
+        """Handle a flow initialized by the user."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema({
+                vol.Optional(CONF_IP_ADDRESS, default=self.config_entry.options.get(CONF_IP_ADDRESS)): str,
+                vol.Optional(CONF_PORT, default=self.config_entry.options.get(CONF_PORT)): int,
+            })
         )
  
 Current contents of [const.py]: 
@@ -118,7 +146,8 @@ class Control4AmpMediaPlayer(MediaPlayerEntity):
     @property
     def supported_features(self):
         """Return the supported features."""
-        return MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE 
+        return MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE
+ 
 Current contents of [udp_communication.py]: 
 import asyncio
 import logging
@@ -173,12 +202,11 @@ class UDPCommunication:
 
     def send_data(self, command):
         """Send data to Control4 Amp."""
-        # Adjusted sequence initialization and formatting
-        self.sequence = (self.sequence % 99) + 1  # Wrap around at 99 and start at 01
-        data = f'0g2a{self.sequence:02d} {command}\r\n'
+        data = f'0g{self.sequence:02d}ha00 {command}\r\n'
         if self.transport:
             self.transport.sendto(data.encode(), (self.ip, self.port))
-            _LOGGER.info("Sent command: %s to %s:%s", data, self.ip, self.port)
+            _LOGGER.info("Sent: %s", data)
+        self.sequence = (self.sequence + 1) % 100  # Wrap around at 99
 
     def handle_response(self, message):
         """Handle responses from the amplifier."""
@@ -189,11 +217,11 @@ class UDPCommunication:
 
     def request_firmware_version(self):
         """Send command to request firmware version."""
-        self.send_data("c4.sy.fwv") 
+        self.send_data("c4.sy.fwv")
+ 
 Current contents of [__init__.py]: 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers import discovery
 from .const import DOMAIN
 
 async def async_setup(hass: HomeAssistant, config: dict):
@@ -202,27 +230,15 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Control4 Amp from a config entry."""
-    # Store a connection instance in hass.data
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {}
-    hass.data[DOMAIN][entry.entry_id] = entry.data
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = entry.data
     await hass.config_entries.async_forward_entry_setups(entry, ["media_player"])
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, ["media_player"])
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
-    return unload_ok
+    await hass.config_entries.async_unload_platforms(entry, ["media_player"])
+    return True
  
-Current contents of [hacs.json]: 
-{
-  "name": "Control4 AMP",
-  "domains": "media_player",
-  "iot_class": "Local Push",
-  "homeassistant": "2021.9.3"
-} 
 Current contents of [hacs.json]: 
 {
   "name": "Control4 AMP",
