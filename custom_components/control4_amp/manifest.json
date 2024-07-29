@@ -1,11 +1,8 @@
 {
   "domain": "control4_amp",
-  "name": "Control4 Amplifier",
-  "version": "0.1.01",
-  "documentation": "https://www.example.com",
+  "name": "Control4 C4-8AMP1-B",
+  "documentation": "https://github.com/your-repository",
   "dependencies": [],
-  "codeowners": ["@heatvent"],
-  "requirements": [],
-  "config_flow": true
+  "codeowners": ["@your-github-username"],
+  "requirements": []
 }
-
