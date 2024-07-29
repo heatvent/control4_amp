@@ -1,48 +1,33 @@
-import logging
-import ipaddress
+"""Config flow for Control4 C4-8AMP1-B."""
+
+from typing import Any, Dict
+
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
-from homeassistant.const import CONF_IP_ADDRESS, CONF_PORT, CONF_NAME
+from homeassistant.core import HomeAssistant
+
 from .const import DOMAIN
 
-_LOGGER = logging.getLogger(__name__)
-
 class Control4AmpConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Manage the Control4 Amp configuration flow."""
+    """Handle a config flow for Control4 C4-8AMP1-B."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
-    async def async_step_user(self, user_input=None):
-        """Handle a flow initialized by the user interface."""
-        errors = {}
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> dict:
+        """Handle the initial step."""
         if user_input is not None:
-            try:
-                ipaddress.ip_address(user_input[CONF_IP_ADDRESS])
-                if user_input[CONF_PORT] <= 0 or user_input[CONF_PORT] > 65535:
-                    raise ValueError("Invalid port number.")
-                _LOGGER.debug("Processing user input: %s", user_input)
-                # Unique ID can be set as IP or another unique identifier
-                await self.async_set_unique_id(user_input[CONF_IP_ADDRESS])
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
-            except ValueError as e:
-                _LOGGER.error("Validation error: %s", e)
-                errors["base"] = "invalid_input"
+            # Validate the IP address
+            ip_address = user_input.get("ip_address")
+            return self.async_create_entry(
+                title="Control4 C4-8AMP1-B",
+                data={"ip_address": ip_address}
+            )
+
+        schema = vol.Schema({
+            vol.Required("ip_address"): str
+        })
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({
-                vol.Required(CONF_NAME, default="AMP Name"): str,
-                vol.Required(CONF_IP_ADDRESS, default="AMP IP Address"): str,
-                vol.Required(CONF_PORT, default=8750): int,
-                vol.Optional("input_1_name", default="Analog 1"): str,
-                vol.Optional("input_2_name", default="Analog 2"): str,
-                vol.Optional("input_3_name", default="Analog 3"): str,
-                vol.Optional("input_4_name", default="Analog 4"): str,
-                vol.Optional("input_5_name", default="Digital 1"): str,
-                vol.Optional("input_6_name", default="Digital 2"): str,
-            }),
-            errors=errors
+            data_schema=schema
         )
