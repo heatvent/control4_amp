@@ -1,5 +1,9 @@
 # Control4 AMP Integration
 
+> **No longer maintained.** For current Control4 amplifiers (C4-AMP108-1B, C4-16AMP3-B) and the
+> C4-16ZAMSV3-B audio matrix, use [ha-c4-audio](https://github.com/heatvent/ha-c4-audio), which adds
+> discovery, EQ, and source routing.
+
 This is a custom Home Assistant integration for the Control4 Amplifier (C4-8AMP1-B).
 
 ## Installation
