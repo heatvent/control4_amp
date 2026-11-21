@@ -2,7 +2,7 @@
   "domain": "control4_amp",
   "name": "Control4 Amplifier",
   "version": "0.1.01",
-  "documentation": "https://www.example.com",
+  "documentation": "https://github.com/heatvent/control4_amp",
   "dependencies": [],
   "codeowners": ["@heatvent"],
   "requirements": [],
